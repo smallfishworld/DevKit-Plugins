@@ -1,0 +1,7 @@
+/node_modules/
+/dist/
+/.devkit-host/
+/.devkit-scaffold-*/
+*.log
+.DS_Store
+/.catalog-*.tmp

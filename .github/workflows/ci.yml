@@ -1,0 +1,48 @@
+name: Plugins CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Validate, test and package every plugin
+        run: npm run check
+      - name: Read the pinned DevKit contract
+        id: compatibility
+        run: node scripts/ci-compatibility.cjs
+      - name: Checkout the pinned DevKit API v1 contract
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.compatibility.outputs.repository }}
+          ref: ${{ steps.compatibility.outputs.commit }}
+          path: .devkit-host
+          persist-credentials: false
+      - name: Verify packages with the real DevKit installer
+        run: npm run check:host -- .devkit-host
+      - name: Upload installable plugin packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: devkit-plugins-${{ runner.os }}-${{ github.sha }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14

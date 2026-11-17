@@ -1,0 +1,44 @@
+{
+  "id": "__PLUGIN_ID__",
+  "name": "__PLUGIN_NAME__",
+  "version": "0.1.0",
+  "apiVersion": 1,
+  "entry": "src/index.cjs",
+  "description": "发送设备查询命令，并等待响应标记。",
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "command": {
+        "type": "string",
+        "title": "查询命令",
+        "description": "支持用 \\r 和 \\n 表示回车与换行。",
+        "default": "AT+VERSION?\\r\\n",
+        "minLength": 1
+      },
+      "expected": {
+        "type": "string",
+        "title": "响应标记",
+        "default": "OK",
+        "minLength": 1
+      },
+      "timeoutMs": {
+        "type": "integer",
+        "title": "超时（毫秒）",
+        "default": 3000,
+        "minimum": 100,
+        "maximum": 30000
+      }
+    },
+    "required": ["command", "expected", "timeoutMs"],
+    "additionalProperties": false
+  },
+  "actions": [
+    {
+      "id": "query",
+      "label": "查询设备",
+      "description": "发送配置中的命令，收到匹配标记后完成。"
+    }
+  ],
+  "autoRespond": false,
+  "capabilities": ["serial.read", "serial.write"]
+}

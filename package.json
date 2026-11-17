@@ -1,0 +1,23 @@
+{
+  "name": "devkit-plugins",
+  "private": true,
+  "version": "0.0.0",
+  "description": "DevKit serial device plugins and shared repository tooling",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "validate": "node scripts/validate.cjs",
+    "test": "node scripts/test.cjs",
+    "catalog": "node scripts/catalog.cjs",
+    "pack": "node scripts/pack.cjs",
+    "pack:all": "node scripts/pack.cjs --all",
+    "new": "node scripts/new.cjs",
+    "check": "npm run validate && npm test && npm run pack:all",
+    "check:host": "node scripts/check-host.cjs"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.12"
+  }
+}
