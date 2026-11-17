@@ -46,3 +46,44 @@ jobs:
           path: dist/
           if-no-files-found: error
           retention-days: 14
+
+  electron-e2e:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run pack:all
+      - name: Read pinned host contract
+        id: compatibility
+        run: node scripts/ci-compatibility.cjs
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.compatibility.outputs.repository }}
+          ref: ${{ steps.compatibility.outputs.commit }}
+          path: .devkit-host
+          persist-credentials: false
+      - name: Install DevKit dependencies
+        working-directory: .devkit-host
+        run: npm ci
+      - name: Build real Electron host
+        working-directory: .devkit-host
+        run: npm run build
+      - name: Cross-repository Electron E2E
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            xvfb-run -a npm run check:electron -- .devkit-host
+          else
+            npm run check:electron -- .devkit-host
+          fi

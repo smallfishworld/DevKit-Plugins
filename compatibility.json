@@ -2,6 +2,6 @@
   "schemaVersion": 1,
   "apiVersion": 1,
   "hostRepository": "smallfishworld/DevKit",
-  "hostCommit": "6264ff63e3f1f58a9f736e6cec74e3526e841048",
+  "hostCommit": "21479d4c1ab54240992aae0f55a5356c59f99746",
   "referencePullRequest": "https://github.com/smallfishworld/DevKit/pull/10"
 }
