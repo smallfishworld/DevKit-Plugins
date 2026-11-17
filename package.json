@@ -15,7 +15,8 @@
     "pack:all": "node scripts/pack.cjs --all",
     "new": "node scripts/new.cjs",
     "check": "npm run validate && npm test && npm run pack:all",
-    "check:host": "node scripts/check-host.cjs"
+    "check:host": "node scripts/check-host.cjs",
+    "check:electron": "node scripts/check-electron.cjs"
   },
   "devDependencies": {
     "esbuild": "0.25.12"
