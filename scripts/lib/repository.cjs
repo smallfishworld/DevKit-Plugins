@@ -83,9 +83,15 @@ function validateManifest(m) {
     ids.add(action.id)
   }
   if (typeof m.autoRespond !== 'boolean') fail('autoRespond 须为 boolean')
-  if (!Array.isArray(m.capabilities) || m.capabilities.some((x) => !['serial.read','serial.write'].includes(x))) fail('capabilities 仅支持 serial.read/write')
+  if (!Array.isArray(m.capabilities) || m.capabilities.some((x) => !['serial.read','serial.write','serial.exclusive','auth.session'].includes(x))) {
+    fail('capabilities 仅支持 serial.read/write/exclusive 与 auth.session')
+  }
   if (new Set(m.capabilities).size !== m.capabilities.length) fail('capabilities 不得重复')
   if (m.autoRespond && !m.capabilities.includes('serial.read')) fail('自动监听须声明 serial.read')
+  if (m.capabilities.includes('serial.exclusive') &&
+    (!m.capabilities.includes('serial.read') || !m.capabilities.includes('serial.write'))) {
+    fail('serial.exclusive 须同时声明 serial.read 和 serial.write')
+  }
   return m
 }
 function loadPlugin(root, slug, source = path.join(root, 'plugins', slug)) {

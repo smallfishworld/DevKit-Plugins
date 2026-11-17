@@ -32,7 +32,7 @@ async function main() {
       let jsonInstall
       for (const [kind, source] of [['directory', directoryPath], ['json', bundlePath]]) {
         const store = new PluginStore(path.join(temp, plugin.slug + '-' + kind))
-        const installed = await store.install(source, new Set(['devkit.oa-debug']))
+        const installed = await store.install(source, new Set())
         assert.equal(installed.id, manifest.id)
         assert.equal(installed.version, manifest.version)
         assert.equal(installed.entry, manifest.entry)
