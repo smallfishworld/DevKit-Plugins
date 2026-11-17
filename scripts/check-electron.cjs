@@ -17,9 +17,11 @@ const packagePath = packPlugin(root, plugin)
 const payload = JSON.parse(fs.readFileSync(packagePath, 'utf8'))
 assert.equal(payload.manifest.id, plugin.manifest.id)
 assert.equal(payload.manifest.version, plugin.manifest.version)
-const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm'
+const isWindows = process.platform === 'win32'
+const npm = isWindows ? 'npm.cmd' : 'npm'
 const result = spawnSync(npm, ['run', 'test:plugins-smoke'], {
   cwd: host, stdio: 'inherit', timeout: 180000,
+  shell: isWindows,
   env: { ...process.env, DEVKIT_PLUGIN_PACKAGE: packagePath }
 })
 if (result.error) throw result.error
