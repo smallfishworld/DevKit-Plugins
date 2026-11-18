@@ -213,7 +213,14 @@ dist/<slug>/<version>/package/
 <slug>/v<version>
 ```
 
-例如 `at-device/v0.1.0`。标签与插件 manifest 的版本应一致；本次仓库工作流只生成 CI 产物，**不会自动发布 GitHub Release**。
+例如 `at-device/v0.1.0`。标签与插件 manifest 的版本应一致。正式发布按以下步骤进行：
+
+1. 完成版本变更并通过仓库检查。将 `releases/request.json` 的 `tag` 更新为本次要发布的稳定版本，一次提交一个插件的发布请求。
+2. 合入 `main` 后，`Publish device plugin` 工作流运行测试及宿主兼容检查，再创建该版本的 GitHub Release 并上传 JSON 包和 `SHA256SUMS`。
+3. 发布步骤以已上传资源的地址和校验值更新[固定安装索引](https://github.com/smallfishworld/DevKit-Plugins/releases/download/install-index-v1/index.json)，保留其它插件条目。DevKit 刷新扩展源后即可安装。
+4. 发布失败时，在 Actions 中重跑该次工作流。现有同版本安装包须与本次构建字节一致。更新插件代码时提高 manifest 版本并提交新的发布请求。
+
+`catalog.json` 由源码生成。安装索引只列出正式发布的包，发布产物留在 Releases。
 
 目录 `slug` 是仓库组织与构建入口，`manifest.id` 是安装身份。重命名目录时保持插件 ID 和动作 ID 不变；DevKit 宏引用稳定的配置实例 ID 与动作 ID，不会随目录名自动改变。升级时也应保留已有配置实例，而不是删除后新建来“迁移”。
 

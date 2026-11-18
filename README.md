@@ -8,7 +8,7 @@ DevKit 串口设备插件仓库。每个插件独立维护协议逻辑、配置�
 |---|---|---|
 | [文本 / HEX 自动应答](plugins/text-hex-responder/README.md) | `devkit.text-hex-responder` | 按完整文本行或 HEX 字节序列匹配设备输入，自动回复；提供手动发送和清空缓存动作，无需 OA。 |
 
-机器可读目录是 [catalog.json](catalog.json)，由各插件 manifest 生成，不能手工维护第二份版本号。该索引用于仓库浏览和构建，当前 DevKit 不会据此自动下载或更新插件。
+机器可读目录是 [catalog.json](catalog.json)，由各插件 manifest 生成，不能手工维护第二份版本号。该目录用于仓库浏览和构建。DevKit 扩展中心默认使用[官方安装索引](https://github.com/smallfishworld/DevKit-Plugins/releases/download/install-index-v1/index.json)，索引包含正式包的下载地址和 SHA-256。
 
 ## 使用插件
 
@@ -31,7 +31,7 @@ npm run check
 
 在 DevKit 中打开串口和“插件”管理器，选择安装目录，或输入 JSON 包的本地路径进行安装。随后创建配置实例、绑定到串口，再按需要开启自动监听。默认配置收到完整的 `PING` 行后回复 `PONG\r\n`。
 
-不要选择整个仓库根目录作为插件。目录安装会复制选中目录内的文件，分发时优先选上面的干净 `package/` 目录。GitHub Actions 的成功运行也会上传相同的 `dist/` 构建产物，保留 14 天；长期稳定下载可在后续单插件 Release 中提供。
+不要选择整个仓库根目录作为插件。目录安装会复制选中目录内的文件，分发时优先选上面的干净 `package/` 目录。GitHub Actions 的成功运行也会上传相同的 `dist/` 构建产物，保留 14 天；长期安装包可从各插件的 GitHub Release 下载。
 
 ## 目录职责
 
