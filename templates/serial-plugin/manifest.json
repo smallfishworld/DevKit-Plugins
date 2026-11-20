@@ -2,7 +2,13 @@
   "id": "__PLUGIN_ID__",
   "name": "__PLUGIN_NAME__",
   "version": "0.1.0",
-  "apiVersion": 1,
+  "apiVersion": 2,
+  "minHostVersion": "0.1.10",
+  "transports": [
+    "serial",
+    "ssh",
+    "net"
+  ],
   "entry": "src/index.cjs",
   "description": "发送设备查询命令，并等待响应标记。",
   "configSchema": {
@@ -29,7 +35,11 @@
         "maximum": 30000
       }
     },
-    "required": ["command", "expected", "timeoutMs"],
+    "required": [
+      "command",
+      "expected",
+      "timeoutMs"
+    ],
     "additionalProperties": false
   },
   "actions": [
@@ -40,5 +50,8 @@
     }
   ],
   "autoRespond": false,
-  "capabilities": ["serial.read", "serial.write"]
+  "capabilities": [
+    "stream.read",
+    "stream.write"
+  ]
 }

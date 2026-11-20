@@ -1,13 +1,16 @@
 {
-  "schemaVersion": 1,
-  "apiVersion": 1,
+  "schemaVersion": 2,
+  "apiVersion": 2,
   "plugins": [
     {
       "slug": "oa-unlock",
       "id": "devkit.oa-debug",
       "name": "OA 设备解锁",
       "version": "1.0.0",
-      "apiVersion": 1,
+      "apiVersion": 2,
+      "transports": [
+        "serial"
+      ],
       "description": "OA 登录、设备挑战码取口令、注入与结果验证；每个实例拥有独立配置，支持手动解锁与自动应答（扣键补发）。",
       "path": "plugins/oa-unlock",
       "readme": "plugins/oa-unlock/README.md",
@@ -18,13 +21,19 @@
       "slug": "text-hex-responder",
       "id": "devkit.text-hex-responder",
       "name": "文本 / HEX 自动应答",
-      "version": "1.0.0",
-      "apiVersion": 1,
-      "description": "独立设备插件示例：按完整文本行或十六进制字节序列匹配应答，不依赖 OA。",
+      "version": "2.0.0",
+      "apiVersion": 2,
+      "minHostVersion": "0.1.10",
+      "transports": [
+        "serial",
+        "ssh",
+        "net"
+      ],
+      "description": "独立多传输设备插件：支持串口、SSH 与网络调试的文本行或 HEX 字节序列多规则自动应答。",
       "path": "plugins/text-hex-responder",
       "readme": "plugins/text-hex-responder/README.md",
-      "packagePath": "dist/text-hex-responder/1.0.0/devkit.text-hex-responder-1.0.0.devkit-plugin.json",
-      "installDirectory": "dist/text-hex-responder/1.0.0/package"
+      "packagePath": "dist/text-hex-responder/2.0.0/devkit.text-hex-responder-2.0.0.devkit-plugin.json",
+      "installDirectory": "dist/text-hex-responder/2.0.0/package"
     }
   ]
 }

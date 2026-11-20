@@ -30,7 +30,7 @@ jobs:
       - name: Read the pinned DevKit contract
         id: compatibility
         run: node scripts/ci-compatibility.cjs
-      - name: Checkout the pinned DevKit API v1 contract
+      - name: Checkout the pinned DevKit API v2 contract
         uses: actions/checkout@v4
         with:
           repository: ${{ steps.compatibility.outputs.repository }}

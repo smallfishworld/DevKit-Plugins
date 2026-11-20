@@ -1,0 +1,46 @@
+name: Publish device plugin
+
+on:
+  push:
+    branches: [main]
+    paths: [releases/request.json, compatibility.json]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: official-device-plugin-publication
+  queue: max
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - name: Read the pinned DevKit contract
+        id: compatibility
+        run: node scripts/ci-compatibility.cjs
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.compatibility.outputs.repository }}
+          ref: ${{ steps.compatibility.outputs.commit }}
+          path: .devkit-host
+          persist-credentials: false
+      - run: npm run check:host -- .devkit-host
+      - name: Publish package and refresh the official install index
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/publish.cjs

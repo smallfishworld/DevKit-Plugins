@@ -1,5 +1,6 @@
 'use strict'
 const assert = require('node:assert/strict')
+const { test } = require('node:test')
 const fs = require('node:fs')
 const path = require('node:path')
 const { setTimeout: delay } = require('node:timers/promises')
@@ -7,54 +8,7 @@ const { setTimeout: delay } = require('node:timers/promises')
 const plugin = require('../src/index.cjs')
 const { parseConfiguration, LineSplitter, matchChallengeLine, isTriggerWord } = plugin.__test
 
-function baseConfig(overrides = {}) {
-  return {
-    loginUrl: 'https://oa.example.invalid/login',
-    authOrigins: [],
-    authCheck: { type: 'json', url: 'https://oa.example.invalid/api/session', field: 'authenticated' },
-    issue: {
-      url: 'https://oa.example.invalid/api/device/token',
-      body: { challenge: '$challenge' },
-      responsePath: 'response',
-      loginExpiredHttp: [401, 403],
-      loginExpiredCodes: [],
-      retryLoginOnce: true
-    },
-    profiles: [
-      {
-        id: 'manual',
-        label: '手动解锁',
-        actionLabel: '解锁 Debug',
-        kind: 'challenge-response',
-        trigger: 'manual',
-        detect: { type: 'prefix', prefix: 'Challenge:' },
-        result: { type: 'line', successLine: 'Debug unlocked', failureLine: 'Debug denied' },
-        command: 'debug',
-        newline: 'cr',
-        challengeTimeoutMs: 2000,
-        challengeTtlMs: 30_000,
-        resultTimeoutMs: 2000,
-        holdInput: false
-      },
-      {
-        id: 'auto',
-        label: '自动解锁',
-        actionLabel: '自动解锁 Debug',
-        kind: 'challenge-response',
-        trigger: 'auto',
-        triggerWords: ['debug'],
-        detect: { type: 'base64-line', shortMin: 20, shortMax: 21, longMin: 300, longMinDecoded: 260 },
-        result: { type: 'prompt-repeat', promptText: 'Password:', decisionDelayMs: 20, silenceMs: 300 },
-        newline: 'cr',
-        challengeTimeoutMs: 2000,
-        challengeTtlMs: 30_000,
-        resultTimeoutMs: 2000,
-        holdInput: { maxBytes: 4096, maxMs: 15_000 }
-      }
-    ],
-    ...overrides
-  }
-}
+const { baseConfig } = require('./fixture.cjs')
 
 function harness(options = {}) {
   const config = options.config || baseConfig()
@@ -80,22 +34,22 @@ function harness(options = {}) {
   }
   const ctx = {
     config: { deviceActions: config, auto: true, ...(options.instance || {}) },
-    session: { panelId: 'serial#test', connectionId: 'conn-1', path: 'COM1', encoding: 'utf8' },
+    session: { panelId: 'serial#test', connectionId: 'conn-1', transport: 'serial', target: 'COM1', encoding: 'utf8' },
     autoEnabled: options.autoEnabled === true,
     signal: controller.signal,
-    serial: {
+    stream: {
       async write() { throw new Error('manual write not expected') },
       async exchange() { throw new Error('exchange not expected') },
       subscribe(listener) {
         listeners.add(listener)
         return () => listeners.delete(listener)
       },
-      async acquire() { order.push('acquire'); return lease },
+      async acquire() { order.push('acquire'); if (options.onAcquire) await options.onAcquire(); return lease },
       async hold(value) { order.push('hold'); holds.push(value) },
       async releaseHold(replay) { order.push('releaseHold'); holdReleases.push(replay) }
     },
     auth: {
-      async login() { order.push('login'); logins++; if (options.loginError) throw options.loginError },
+      async login() { order.push('login'); logins++; if (options.loginError) throw options.loginError; if (options.onLogin) await options.onLogin() },
       async request() {
         order.push('request')
         issueCalls++
@@ -236,16 +190,119 @@ function validation() {
   console.log('  PASS configuration and protocol matching: strict HTTPS, same origin, $challenge, line assembly')
 }
 
-async function main() {
+test('manifest keeps the OA identity and action while declaring API v2 stream capabilities', () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'manifest.json'), 'utf8'))
   assert.equal(manifest.id, 'devkit.oa-debug')
-  assert.deepEqual(manifest.capabilities, ['serial.read', 'serial.write', 'serial.exclusive', 'auth.session'])
-  validation()
-  await manualUnlock()
-  await automaticUnlock()
-  await rejectedVerdict()
-  await loginRetry()
-  console.log('oa-unlock: all tests passed')
-}
+  assert.equal(manifest.apiVersion, 2)
+  assert.deepEqual(manifest.transports, ['serial'])
+  assert.deepEqual(manifest.actions.map((action) => action.id), ['run'])
+  assert.deepEqual(manifest.capabilities, ['stream.read', 'stream.write', 'stream.exclusive', 'auth.session'])
+})
+test('configuration and protocol boundaries stay strict', validation)
+test('manual OA transaction authenticates before the lease and sends a secret token', manualUnlock)
+test('automatic unlock holds input before the lease and replays only after acceptance', automaticUnlock)
+test('rejected automatic unlock drops the held input', rejectedVerdict)
+test('an expired OA session retries login exactly once', loginRetry)
 
-main().catch((error) => { console.error(error); process.exitCode = 1 })
+test('abort while waiting for the challenge immediately rejects and releases the lease', async () => {
+  const h = harness()
+  const instance = await plugin.activate(h.ctx)
+  const running = instance.run('run')
+  const rejected = assert.rejects(running, /取消|已停止/)
+  await until(() => h.sent.length === 1, 'challenge wait started')
+  h.controller.abort()
+  await rejected
+  assert.equal(h.order.filter((item) => item === 'release').length, 1)
+  h.emit('Challenge: TOO_LATE_123\r\n')
+  assert.equal(h.sent.length, 1)
+  await instance.dispose()
+})
+
+test('dispose cancels the active wait even when the caller has not aborted the SDK signal', async () => {
+  const h = harness()
+  const instance = await plugin.activate(h.ctx)
+  const running = instance.run('run')
+  const rejected = assert.rejects(running, /取消|已停止/)
+  await until(() => h.sent.length === 1, 'challenge wait started')
+  await instance.dispose()
+  await rejected
+  assert.equal(h.order.filter((item) => item === 'release').length, 1)
+  await assert.rejects(() => instance.run('run'), /已停止/)
+  h.emit('Challenge: TOO_LATE_123\r\n')
+  assert.equal(h.sent.length, 1)
+})
+
+test('a lease acquired after disposal is released without sending a stale command', async () => {
+  let resolveLease
+  const h = harness({ onAcquire: () => new Promise((resolve) => { resolveLease = resolve }) })
+  const instance = await plugin.activate(h.ctx)
+  const running = instance.run('run')
+  const rejected = assert.rejects(running, /已停止/)
+  await until(() => typeof resolveLease === 'function', 'lease is queued')
+  await instance.dispose()
+  resolveLease()
+  await rejected
+  assert.deepEqual(h.sent, [])
+  assert.equal(h.order.filter((item) => item === 'release').length, 1)
+})
+
+test('abort during authentication cannot acquire a lease or send after login resolves', async () => {
+  let resolveLogin
+  const h = harness({ onLogin: () => new Promise((resolve) => { resolveLogin = resolve }) })
+  const instance = await plugin.activate(h.ctx)
+  const running = instance.run('run')
+  const rejected = assert.rejects(running, /已停止/)
+  await until(() => typeof resolveLogin === 'function', 'login is pending')
+  h.controller.abort()
+  resolveLogin()
+  await rejected
+  assert.equal(h.order.includes('acquire'), false)
+  assert.deepEqual(h.sent, [])
+  await instance.dispose()
+})
+
+test('disposal releases a trigger-word hold before any challenge and unsubscribes', async () => {
+  const h = harness({ autoEnabled: true })
+  const instance = await plugin.activate(h.ctx)
+  h.emit('debug\r\n')
+  await until(() => h.holds.length === 1, 'early input hold')
+  await instance.dispose()
+  assert.deepEqual(h.holdReleases, [false])
+  h.emit('Q0hBTExFTkdFX0FCQ0Q=\r\n')
+  assert.equal(h.order.includes('acquire'), false)
+  assert.deepEqual(h.sent, [])
+})
+
+test('snapshot configuration survives external edits while challenge and verdict span chunks', async () => {
+  let h
+  h = harness({ onWrite: async (text) => {
+    if (text === 'debug\r') { h.emit('Chall'); h.emit('enge: CHAL_SPLIT_123\r\n') }
+    else { h.emit('Debug un'); h.emit('locked\r\n') }
+  } })
+  const instance = await plugin.activate(h.ctx)
+  h.ctx.config.deviceActions.profiles[0].command = 'changed'
+  assert.deepEqual(await instance.run('run'), { ok: true })
+  assert.equal(h.sent[0].text, 'debug\r')
+  await instance.dispose()
+})
+
+test('write failure rejects the action without copying private driver data to diagnostics', async () => {
+  const h = harness({ onWrite: () => { throw new Error('PRIVATE_DRIVER_PAYLOAD') } })
+  const instance = await plugin.activate(h.ctx)
+  await assert.rejects(() => instance.run('run'), (error) => {
+    assert.match(error.message, /发送设备动作命令失败/)
+    assert.doesNotMatch(error.message, /PRIVATE_DRIVER_PAYLOAD/)
+    return true
+  })
+  assert.equal(h.order.filter((item) => item === 'release').length, 1)
+  await instance.dispose()
+})
+
+test('oversized lines are dropped through the next delimiter instead of accepting their suffix', () => {
+  const lines = new LineSplitter()
+  const seen = []
+  const visit = (line) => { seen.push(line); return false }
+  lines.push('x'.repeat(4097), 1, visit)
+  lines.push('Challenge: FALSE_123\r\nChallenge: VALID_123\n', 2, visit)
+  assert.deepEqual(seen, ['Challenge: VALID_123'])
+})

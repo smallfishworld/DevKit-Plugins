@@ -16,10 +16,10 @@ function fixture(exchange, config = {}) {
       timeoutMs: 3000,
       ...config
     },
-    session: { panelId: 'test-panel', connectionId: 'test-connection', path: 'MOCK', encoding: 'utf8' },
+    session: { panelId: 'test-panel', connectionId: 'test-connection', transport: 'serial', target: 'MOCK', encoding: 'utf8' },
     autoEnabled: false,
     signal: controller.signal,
-    serial: {
+    stream: {
       async exchange(data, options) {
         calls.push({ data, options })
         return exchange(data, options)
@@ -36,12 +36,13 @@ function response(text = 'VERSION 1.0\r\nOK\r\n') {
   return { text, bytes: [...Buffer.from(text)], receivedAt: 1000 }
 }
 
-test('manifest declares the query action and its required serial capabilities', () => {
+test('manifest declares the query action and its required stream capabilities', () => {
   assert.equal(manifest.entry, 'src/index.cjs')
-  assert.equal(manifest.apiVersion, 1)
+  assert.equal(manifest.apiVersion, 2)
   assert.equal(manifest.autoRespond, false)
+  assert.deepEqual(manifest.transports, ['serial', 'ssh', 'net'])
   assert.deepEqual(manifest.actions.map(action => action.id), ['query'])
-  assert.deepEqual(manifest.capabilities, ['serial.read', 'serial.write'])
+  assert.deepEqual(manifest.capabilities, ['stream.read', 'stream.write'])
 })
 
 test('activation does not send a command', async () => {
@@ -72,7 +73,7 @@ test('query awaits the response and expands CR/LF escapes', async () => {
   await plugin.dispose()
 })
 
-test('unknown actions fail before any serial write', async () => {
+test('unknown actions fail before any stream write', async () => {
   const f = fixture(() => response())
   const plugin = await activate(f.ctx)
   await assert.rejects(plugin.run('missing'), /未知动作/)

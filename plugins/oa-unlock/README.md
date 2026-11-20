@@ -6,9 +6,10 @@
 | --- | --- |
 | 插件 ID | `devkit.oa-debug` |
 | 版本 | `1.0.0` |
-| DevKit 插件 API | `1` |
+| DevKit 插件 API | `2` |
+| 会话类型 | `serial` |
 | 入口 | `src/index.cjs` |
-| 宿主能力 | `serial.read`、`serial.write`、`serial.exclusive`、`auth.session` |
+| 宿主能力 | `stream.read`、`stream.write`、`stream.exclusive`、`auth.session` |
 | 运行依赖 | Node.js 内置能力与 DevKit 提供的插件 SDK |
 | OA / 登录 | 需要公司 OA 登录页、会话检查接口与取码接口 |
 
@@ -29,7 +30,7 @@ dist/oa-unlock/1.0.0/devkit.oa-debug-1.0.0.devkit-plugin.json
 dist/oa-unlock/1.0.0/package/
 ```
 
-在 DevKit 串口面板打开插件管理，导入 JSON 包或选择 `package/` 目录。插件是可信本地代码，由 DevKit 的独立进程运行，但不是安全沙箱；安装或更新前请确认来源。
+在 DevKit 的扩展中心，导入 JSON 包或选择 `package/` 目录。插件是可信本地代码，由 DevKit 的独立进程运行，但不是安全沙箱；安装或更新前请确认来源。
 
 安装后创建配置实例、绑定到已连接的串口，再选择手动动作或开启自动监听。安装插件本身不会打开串口，也不会开始发送。
 
@@ -144,7 +145,7 @@ DevKit 配置表单中的 `deviceActions` 就是原先 `device-actions.json` 的
 ## 安全与隐私
 
 - Cookie 只保存在 DevKit 宿主的 Chromium 独立持久分区中，不写入插件配置、宏或日志。
-- 口令通过 `ctx.serial.write(..., { secret: true })` 注入，由宿主屏蔽回显；插件日志和状态只描述阶段与结果。
+- 口令通过 `await ctx.stream.acquire()` 取得的事务租约，以 `lease.write(..., { secret: true })` 注入，由宿主屏蔽回显；插件日志和状态只描述阶段与结果。
 - 取码失败只报告结构（字段名、长度、业务 code），绝不输出可能的口令。
 - 登录窗口只允许配置的来源跳转，拒绝 `window.open`，禁用权限请求。
 
@@ -154,13 +155,14 @@ DevKit 配置表单中的 `deviceActions` 就是原先 `device-actions.json` 的
 node --test plugins/oa-unlock/test/oa-unlock.test.cjs
 ```
 
-测试使用模拟 OA 接口与模拟串口，不连接真实设备，也不调用 DevKit 或 Electron。覆盖手动解锁、自动触发与扣键补发、拒绝判定、登录过期重登、配置校验、挑战码分行匹配以及口令不进日志/状态。
+测试使用模拟 OA 接口与模拟串口，不连接真实设备，也不调用 DevKit 或 Electron。覆盖手动解锁、自动触发与扣键补发、拒绝判定、登录过期重登、配置校验、挑战码分行匹配、口令不进日志/状态，以及停止时取消等待、清理租约和拒绝迟到发送。`npm run check:host -- /path/to/DevKit` 还对实际安装包执行官方 API v2 SDK 契约验证。
 
 | 文件 | 职责 |
 | --- | --- |
 | `manifest.json` | 稳定插件身份、配置 Schema、动作与宿主能力。 |
 | `src/index.cjs` | 独立 CommonJS 实现；不导入 DevKit 内部源码、Electron 或原生串口模块。 |
 | `test/oa-unlock.test.cjs` | 模拟宿主下的协议、生命周期与隐私回归。 |
+| `test/fixture.cjs`、`test/host-contract.cjs` | 合成 OA / 设备配置及真实 SDK 契约矢量，不打入运行包。 |
 | `CHANGELOG.md` | 本插件的版本变更记录。 |
 
 ## 从内置 OA 解锁迁移

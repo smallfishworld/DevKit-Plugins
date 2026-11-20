@@ -1,7 +1,7 @@
 'use strict'
 
 // OA 设备解锁（DevKit 外部插件）
-// 串口由 DevKit 宿主持有：本插件只通过 ctx.serial / ctx.auth 声明能力，
+// 串口由 DevKit 宿主持有：本插件只通过 ctx.stream / ctx.auth 声明能力，
 // 不导入 DevKit、serialport 或 Electron。Cookie 留在宿主 Chromium 分区，
 // 口令只经 secret 写入，绝不进入日志、状态或错误文本。
 //
@@ -343,7 +343,7 @@ exports.activate = async function activate(ctx) {
   const autoWatching = Boolean(ctx.autoEnabled) && raw.auto !== false
 
   function assertLive() {
-    if (closed) throw new Error('插件已停止')
+    if (closed || ctx.signal.aborted) throw new Error('插件已停止')
   }
   function setStage(stage, profile) {
     ctx.state({ running: true, stage, profileId: profile.id })
@@ -412,6 +412,7 @@ exports.activate = async function activate(ctx) {
 
   function nextLine(lease, text, secret, timeoutMs, match) {
     return new Promise((resolve, reject) => {
+      assertLive()
       const lines = new LineSplitter()
       let settled = false
       const finish = (error, result) => {
@@ -429,6 +430,7 @@ exports.activate = async function activate(ctx) {
         : '等待设备挑战码超时')), timeoutMs)
       const session = {
         lines,
+        cancel: onAbort,
         visit(line, receivedAt) {
           try {
             const value = match(line)
@@ -448,6 +450,7 @@ exports.activate = async function activate(ctx) {
 
   function waitVerdict(lease, input) {
     return new Promise((resolve, reject) => {
+      assertLive()
       const lines = new LineSplitter()
       let settled = false
       let decision
@@ -465,6 +468,7 @@ exports.activate = async function activate(ctx) {
       const timer = setTimeout(() => finish('accepted'), input.timeoutMs)
       const session = {
         lines,
+        cancel: onAbort,
         visit(line) {
           if (input.isReject(line)) { finish('rejected'); return true }
           if (!decision) decision = setTimeout(() => finish('accepted'), input.decisionDelayMs)
@@ -489,17 +493,17 @@ exports.activate = async function activate(ctx) {
       setStage('checking', profile)
       if (options.source === 'auto' && profile.holdInput) {
         try {
-          await ctx.serial.hold(profile.holdInput)
+          await ctx.stream.hold(profile.holdInput)
           held = true
         } catch (error) {
           throw new Error('无法扣住串口输入：' + errorText(error))
         }
       }
-      if (options.source === 'auto') lease = await ctx.serial.acquire()
+      if (options.source === 'auto') lease = await ctx.stream.acquire()
       await authenticate(profile, () => setStage('challenge', profile))
       if (!options.challenge) {
         assertLive()
-        lease = await ctx.serial.acquire()
+        lease = await ctx.stream.acquire()
       }
       const leaserLease = lease
       let challenge = options.challenge
@@ -554,7 +558,7 @@ exports.activate = async function activate(ctx) {
       throw error
     } finally {
       if (held) {
-        try { await ctx.serial.releaseHold(ok) } catch { /* stopping */ }
+        try { await ctx.stream.releaseHold(ok) } catch { /* stopping */ }
       }
       if (lease) {
         try { await lease.release() } catch { /* stopping */ }
@@ -583,7 +587,7 @@ exports.activate = async function activate(ctx) {
     for (const profile of autoProfiles) {
       if (profile.holdInput && isTriggerWord(line, profile.triggerWords)) {
         // 设备即将索要口令：先扣住用户输入，等挑战码到达后再发起自动解锁。
-        void ctx.serial.hold(profile.holdInput).catch(() => {})
+        void ctx.stream.hold(profile.holdInput).catch(() => {})
       }
     }
     for (const profile of autoProfiles) {
@@ -601,7 +605,7 @@ exports.activate = async function activate(ctx) {
     watchLines = new LineSplitter()
   }
 
-  const unsubscribe = ctx.serial.subscribe((event) => {
+  const unsubscribe = ctx.stream.subscribe((event) => {
     if (closed) return
     const text = typeof event.text === 'string' ? event.text : ''
     if (!text) return
@@ -616,7 +620,8 @@ exports.activate = async function activate(ctx) {
     if (closed) return
     closed = true
     unsubscribe()
-    try { void ctx.serial.releaseHold(false) } catch { /* stopping */ }
+    if (active) active.cancel()
+    try { void ctx.stream.releaseHold(false).catch(() => {}) } catch { /* stopping */ }
   }
   ctx.signal.addEventListener('abort', stop, { once: true })
   if (ctx.signal.aborted) stop()

@@ -2,7 +2,7 @@
   "id": "devkit.oa-debug",
   "name": "OA 设备解锁",
   "version": "1.0.0",
-  "apiVersion": 1,
+  "apiVersion": 2,
   "entry": "src/index.cjs",
   "description": "OA 登录、设备挑战码取口令、注入与结果验证；每个实例拥有独立配置，支持手动解锁与自动应答（扣键补发）。",
   "configSchema": {
@@ -36,9 +36,12 @@
   ],
   "autoRespond": true,
   "capabilities": [
-    "serial.read",
-    "serial.write",
-    "serial.exclusive",
+    "stream.read",
+    "stream.write",
+    "stream.exclusive",
     "auth.session"
+  ],
+  "transports": [
+    "serial"
   ]
 }
