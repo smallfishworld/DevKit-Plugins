@@ -160,3 +160,20 @@ test('scaffold creates a second installable API v2 plugin without changing exist
   const result = spawnSync(process.execPath, ['--test', path.join(created, 'test/plugin.test.cjs')], { encoding: 'utf8' })
   assert.equal(result.status, 0, result.stdout + result.stderr)
 })
+
+test('exclusive stream capability requires read and write; legacy serial capabilities stay rejected', (t) => {
+  const root = fixture(t)
+  changeManifest(root, (m) => {
+    m.capabilities = ['stream.read', 'stream.write', 'stream.exclusive', 'auth.session']
+  })
+  assert.deepEqual(api.discover(root)[0].manifest.capabilities,
+    ['stream.read', 'stream.write', 'stream.exclusive', 'auth.session'])
+  for (const capabilities of [['stream.exclusive'], ['stream.read', 'stream.exclusive'], ['stream.write', 'stream.exclusive']]) {
+    changeManifest(root, (m) => { m.capabilities = capabilities })
+    assert.throws(() => api.discover(root), /stream.exclusive/)
+  }
+  changeManifest(root, (m) => { m.capabilities = ['serial.read', 'serial.write'] })
+  assert.throws(() => api.discover(root), /capabilities/)
+  changeManifest(root, (m) => { m.capabilities = ['auth.session', 'auth.session'] })
+  assert.throws(() => api.discover(root), /重复/)
+})

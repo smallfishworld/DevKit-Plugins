@@ -3,7 +3,7 @@ name: Publish device plugin
 on:
   push:
     branches: [main]
-    paths: [releases/request.json]
+    paths: [releases/request.json, compatibility.json]
   workflow_dispatch:
 
 permissions:

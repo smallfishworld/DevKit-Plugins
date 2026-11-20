@@ -1,14 +1,15 @@
 # 文本 / HEX 自动应答
 
-通过完整文本行或十六进制字节序列触发串口应答。默认收到 `PING` 加换行后，回复 `PONG\r\n`；也可以配置收到 `AA 01` 后回复 `55 FE`。
+通过完整文本行或十六进制字节序列触发设备应答。默认收到 `PING` 加换行后，回复 `PONG\r\n`；也可以配置收到 `AA 01` 后回复 `55 FE`。
 
 | 项目 | 内容 |
 | --- | --- |
 | 插件 ID | `devkit.text-hex-responder` |
-| 版本 | `1.0.0` |
-| DevKit 插件 API | `1` |
+| 版本 | `2.0.0` |
+| DevKit 插件 API | `2` |
+| 会话类型 | `serial`、`ssh`、`net` |
 | 入口 | `src/index.cjs` |
-| 宿主能力 | `serial.read`、`serial.write` |
+| 宿主能力 | `stream.read`、`stream.write` |
 | 运行依赖 | Node.js 内置能力与 DevKit 提供的插件 SDK |
 | OA / 登录 | 无需配置 |
 
@@ -23,18 +24,18 @@ npm run pack -- text-hex-responder
 生成的 JSON 插件包为：
 
 ```text
-dist/text-hex-responder/1.0.0/devkit.text-hex-responder-1.0.0.devkit-plugin.json
+dist/text-hex-responder/2.0.0/devkit.text-hex-responder-2.0.0.devkit-plugin.json
 ```
 
-在 DevKit 的串口面板打开插件管理，导入该 JSON 插件包。也可以选择目录安装，推荐选打包生成的干净目录：
+在 DevKit 的扩展中心，导入该 JSON 插件包。也可以选择目录安装，推荐选打包生成的干净目录：
 
 ```text
-dist/text-hex-responder/1.0.0/package/
+dist/text-hex-responder/2.0.0/package/
 ```
 
 该目录包含 `manifest.json`、`src/` 和随包保留的许可证。开发时也可以直接选择源码目录 `plugins/text-hex-responder/`；宿主会一并复制目录中的测试和说明文件。目录选择应定位到包含 `manifest.json` 的这一层。
 
-安装之后，创建配置实例，将实例绑定到已连接的串口，再开启该实例的自动监听。安装插件本身不会打开串口或开始发送。需要主动发送时，调用“发送配置的回复”动作。
+安装之后，创建配置实例，将实例绑定到已连接的串口、SSH 或网络会话，再开启该实例的自动监听。安装插件本身不会打开串口或开始发送。需要主动发送时，调用“发送配置的回复”动作。
 
 ## 配置
 
@@ -44,7 +45,8 @@ DevKit 根据 `manifest.json` 生成配置表单并填入默认值。插件在�
 | --- | --- | --- |
 | `mode` | `"text"` | `"text"` 按完整文本行匹配；`"hex"` 按字节序列匹配。 |
 | `match` | `"PING"` | 匹配内容，1–4096 个字符。HEX 模式须为非空、完整字节的十六进制文本。 |
-| `response` | `"PONG"` | 回复内容，最多 4096 个字符。HEX 模式同样须为非空、完整字节。 |
+| `response` | `"PONG"` | 默认规则的回复内容，最多 4096 个字符。HEX 模式同样须为非空、完整字节。 |
+| `rules` | `[]` | 最多 32 条附加规则，每项为 `{ "match": "STATUS", "response": "READY" }`。默认 `match` / `response` 仍作为第一条规则。 |
 | `newline` | `"crlf"` | 文本回复追加 `none`、`cr`、`lf` 或 `crlf`；HEX 模式忽略此项。 |
 | `ignoreCase` | `false` | 文本模式是否忽略大小写。 |
 | `replyDelayMs` | `0` | 每次回复前延时，0–5000 毫秒的整数。 |
@@ -57,6 +59,7 @@ DevKit 根据 `manifest.json` 生成配置表单并填入默认值。插件在�
   "mode": "text",
   "match": "PING",
   "response": "PONG",
+  "rules": [{ "match": "STATUS", "response": "READY" }],
   "newline": "crlf",
   "ignoreCase": false,
   "replyDelayMs": 0,
@@ -64,7 +67,7 @@ DevKit 根据 `manifest.json` 生成配置表单并填入默认值。插件在�
 }
 ```
 
-匹配需要完整一行，以 CR、LF 或 CRLF 结束。数据可以分多次到达：先收到 `PI`，再收到 `NG\r\n`，仍只回复一次。同一批数据包含多条匹配行时，逐条回复。
+匹配需要完整一行，以 CR、LF 或 CRLF 结束。数据可以分多次到达：先收到 `PI`，再收到 `NG\r\n`，仍只回复一次。同一批数据包含多条匹配行时，逐条回复；附加规则按配置顺序比较，同一行只使用第一条命中的规则。上面的配置收到 `STATUS` 完整行会回复 `READY\r\n`。
 
 匹配默认区分大小写，保留首尾空格。`PING`、`ping`、` PING` 和 `PING ` 是不同内容。文本回复正文可以为空；此时应选择一个换行符，确保发送内容非空。
 
@@ -75,6 +78,7 @@ DevKit 根据 `manifest.json` 生成配置表单并填入默认值。插件在�
   "mode": "hex",
   "match": "AA 01",
   "response": "55 FE",
+  "rules": [],
   "newline": "none",
   "ignoreCase": false,
   "replyDelayMs": 0,
@@ -90,8 +94,8 @@ HEX 内容支持空白分隔、大小写字母，例如 `aa 01`、`AA01`。不�
 
 | 动作 ID | 界面名称 | 行为 |
 | --- | --- | --- |
-| `send` | 发送配置的回复 | 按当前配置主动发送一次回复，包含配置的延时及文本换行。 |
-| `reset` | 清空协议缓存 | 清空文本和 HEX 接收缓存，并退出超长行丢弃状态；不发送串口数据，也不重置累计回复次数。 |
+| `send` | 发送配置的回复 | 按默认规则主动发送一次回复，包含配置的延时及文本换行。 |
+| `reset` | 清空协议缓存并取消待发延时 | 清空文本和 HEX 接收缓存，取消尚未发送的延时回复并退出超长行丢弃状态；不发送数据，也不重置累计回复次数。 |
 
 手动动作可以通过 DevKit 插件界面或快捷命令调用。插件通过 `ctx.state({ replies })` 报告当前实例累计成功回复次数。
 
@@ -102,7 +106,7 @@ HEX 内容支持空白分隔、大小写字母，例如 `aa 01`、`AA01`。不�
 - 单次接收回调最多回复 32 次；更多命中会抛出错误，阻止本批继续回复。
 - 多个命中按顺序应答，配置的延时作用于每次回复。
 - 停止实例时，`dispose()` 清理接收缓存和等待中的延时，取消尚未发送的回复。
-- 串口连接、事务互斥、实例绑定以及自动监听开关由 DevKit 宿主管理。插件只通过受控 SDK 写入数据。
+- 会话连接、事务互斥、实例绑定以及自动监听开关由 DevKit 宿主管理。插件只通过受控 SDK 写入数据。
 
 ## 开发与测试
 

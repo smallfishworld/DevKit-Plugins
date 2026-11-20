@@ -43,7 +43,8 @@ plugins/<slug>/
 - `configSchema`：顶层为 `object`，支持 `x-visibleWhen` 条件显隐（`{ field, equals?, notEquals?, in? }`）以及 `type: "array"` 对象数组多规则表单。
 - `actions`：最多 32 项动作定义。
 - `autoRespond`：是否提供 `onData` 自动监听。
-- `capabilities`：仅接受 `stream.read`、`stream.write`（`autoRespond: true` 须声明 `stream.read`）。
+- `capabilities`：支持 `stream.read`、`stream.write`、`stream.exclusive` 与 `auth.session`。`autoRespond: true` 须声明 `stream.read`；`stream.exclusive` 须同时声明读写能力。独占插件使用 `ctx.stream.acquire()` 显式管理事务，并在 `finally` 中释放。
+- OA 等授权流程通过 `ctx.auth.login()` / `ctx.auth.request()` 使用宿主管理的会话。`ctx.stream.hold()` / `releaseHold()` 的输入扣留与补发只支持串口；使用这些能力的插件应声明 `transports: ["serial"]`。
 
 ## 4. 生命周期、流调用与并发约定
 
@@ -80,8 +81,12 @@ exports.activate = async function activate(ctx) {
 | `npm run validate` | 校验目录、清单、符号链接与体积边界 |
 | `npm test` | 运行仓库元测试与全部插件单测 |
 | `npm run pack:all` | 打包全部插件为自包含 JSON 与 `SHA256SUMS` |
-| `npm run check:host -- ../DevKit` | 隔离编译 `DevKit/packages/plugin-sdk`，用官方 `createMockPluginContext` 在全部声明 `transports` 上校验每个插件 |
+| `npm run check:host -- ../DevKit` | 真实安装器验证目录与 JSON 包，再隔离编译 `DevKit/packages/plugin-sdk`，用官方 `createMockPluginContext` 在全部声明 `transports` 上校验每个插件 |
 | `npm run check:electron -- ../DevKit` | 自动遍历 `catalog.json` 中全部插件执行真实 Electron `utilityProcess` 冒烟测试 |
+
+`compatibility.json` 必须声明 `apiVersion: 2` 并固定完整宿主提交 SHA，CI 和本地 `validate` 共用同一校验。更改宿主能力时，先将匹配的宿主实现通过 CI，再更新此基线，不能指向旧 API v1 或只支持基础 v2 的提交。
+
+需要业务配置或协议矢量的插件可在 `test/host-contract.cjs` 提供 `config`、`autoEnabled`、SDK mock 的 `onWrite` / `onAuthLogin` / `onAuthRequest` 钩子，以及 `verify(instance, harness, { activate, createMockPluginContext })`。检查器仍对每个插件执行真实安装、官方 schema 校验和全部声明会话类型的激活；夹具只提供合成配置与设备响应，不进入安装包。
 
 ## 6. 批量发布与索引 v2 治理
 
@@ -99,3 +104,5 @@ exports.activate = async function activate(ctx) {
 - `yank`：填入需撤回的 `pluginId`，发布脚本在 `install-index-v2` 中将其标记为 `yanked: true`（不篡改既有 `sha256` 与 `url`），宿主侧将禁止安装。
 - `deprecations`：按 `{ "<pluginId>": "迁移提示" }` 写入废弃说明。
 - `scripts/publish.cjs` 保持版本单调递增与同版本哈希不可变校验，并同步写入 `apiVersion: 2`、`transports` 与 `minHostVersion`。
+
+`main` 上更改 `releases/request.json` 或 `compatibility.json` 会触发发布校验。后者用于在宿主兼容基线修复后重试已有请求；请求中的 `tags` 决定发布范围，新增插件目录不会自动发布。重试仍要求同版本包哈希不可变，并保留索引中的其他版本。

@@ -7,7 +7,7 @@ const SLUG = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/
 const ID = /^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)+$/
 const VERSION = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?$/
 const ALLOWED_TRANSPORTS = ['serial', 'ssh', 'net', 'pty']
-const ALLOWED_CAPABILITIES = ['stream.read', 'stream.write']
+const ALLOWED_CAPABILITIES = ['stream.read', 'stream.write', 'stream.exclusive', 'auth.session']
 const own = (value, key) => Object.prototype.hasOwnProperty.call(value, key)
 const record = (value) => value !== null && typeof value === 'object' && !Array.isArray(value)
 function fail(message) { throw new Error(message) }
@@ -120,10 +120,14 @@ function validateManifest(m) {
   }
   if (typeof m.autoRespond !== 'boolean') fail('autoRespond 须为 boolean')
   if (!Array.isArray(m.capabilities) || m.capabilities.some((x) => !ALLOWED_CAPABILITIES.includes(x))) {
-    fail('capabilities 仅支持 stream.read/stream.write')
+    fail('capabilities 仅支持 stream.read/write/exclusive 与 auth.session')
   }
   if (new Set(m.capabilities).size !== m.capabilities.length) fail('capabilities 不得重复')
   if (m.autoRespond && !m.capabilities.includes('stream.read')) fail('自动监听须声明 stream.read')
+  if (m.capabilities.includes('stream.exclusive') &&
+    (!m.capabilities.includes('stream.read') || !m.capabilities.includes('stream.write'))) {
+    fail('stream.exclusive 须同时声明 stream.read 和 stream.write')
+  }
   return m
 }
 
