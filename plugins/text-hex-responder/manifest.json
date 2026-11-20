@@ -1,10 +1,16 @@
 {
   "id": "devkit.text-hex-responder",
   "name": "文本 / HEX 自动应答",
-  "version": "1.0.0",
-  "apiVersion": 1,
+  "version": "2.0.0",
+  "apiVersion": 2,
+  "minHostVersion": "0.1.10",
+  "transports": [
+    "serial",
+    "ssh",
+    "net"
+  ],
   "entry": "src/index.cjs",
-  "description": "独立设备插件示例：按完整文本行或十六进制字节序列匹配应答，不依赖 OA。",
+  "description": "独立多传输设备插件：支持串口、SSH 与网络调试的文本行或 HEX 字节序列多规则自动应答。",
   "configSchema": {
     "type": "object",
     "properties": {
@@ -19,16 +25,46 @@
       },
       "match": {
         "type": "string",
-        "title": "匹配内容",
+        "title": "默认匹配内容",
         "minLength": 1,
         "maxLength": 4096,
         "default": "PING"
       },
       "response": {
         "type": "string",
-        "title": "回复内容",
+        "title": "默认回复内容",
         "maxLength": 4096,
         "default": "PONG"
+      },
+      "rules": {
+        "type": "array",
+        "title": "扩展匹配规则",
+        "description": "可选附加多条匹配规则，按顺序命中并回复。",
+        "default": [],
+        "maxItems": 32,
+        "items": {
+          "type": "object",
+          "properties": {
+            "match": {
+              "type": "string",
+              "title": "匹配内容",
+              "minLength": 1,
+              "maxLength": 4096,
+              "default": "PING"
+            },
+            "response": {
+              "type": "string",
+              "title": "回复内容",
+              "maxLength": 4096,
+              "default": "PONG"
+            }
+          },
+          "required": [
+            "match",
+            "response"
+          ],
+          "additionalProperties": false
+        }
       },
       "newline": {
         "type": "string",
@@ -39,12 +75,20 @@
           "lf",
           "crlf"
         ],
-        "default": "crlf"
+        "default": "crlf",
+        "x-visibleWhen": {
+          "field": "mode",
+          "equals": "text"
+        }
       },
       "ignoreCase": {
         "type": "boolean",
         "title": "文本忽略大小写",
-        "default": false
+        "default": false,
+        "x-visibleWhen": {
+          "field": "mode",
+          "equals": "text"
+        }
       },
       "replyDelayMs": {
         "type": "integer",
@@ -79,12 +123,12 @@
     },
     {
       "id": "reset",
-      "label": "清空协议缓存"
+      "label": "清空协议缓存并取消待发延时"
     }
   ],
   "autoRespond": true,
   "capabilities": [
-    "serial.read",
-    "serial.write"
+    "stream.read",
+    "stream.write"
   ]
 }

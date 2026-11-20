@@ -1,8 +1,8 @@
 'use strict'
 
 /**
- * Device query plugin template.
- * The host owns the port. Await every serial operation through ctx.serial.
+ * Device query plugin template (DevKit API v2).
+ * The host owns the transport. Await every stream operation through ctx.stream.
  */
 exports.activate = async function activate(ctx) {
   let disposed = false
@@ -21,7 +21,7 @@ exports.activate = async function activate(ctx) {
       const command = String(ctx.config.command)
         .replace(/\\r/g, '\r')
         .replace(/\\n/g, '\n')
-      const result = await ctx.serial.exchange(command, {
+      const result = await ctx.stream.exchange(command, {
         match: String(ctx.config.expected),
         timeoutMs: Number(ctx.config.timeoutMs)
       })
@@ -31,7 +31,6 @@ exports.activate = async function activate(ctx) {
     },
 
     async dispose() {
-      // Cancel any plugin-owned timers/listeners here when extending this template.
       disposed = true
     }
   }

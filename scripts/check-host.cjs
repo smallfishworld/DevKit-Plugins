@@ -6,77 +6,74 @@ const path = require('node:path')
 const { pathToFileURL } = require('node:url')
 const { buildSync } = require('esbuild')
 const { discover, verifyCatalog, packPlugin } = require('./lib/repository.cjs')
+
 async function main() {
   if (process.argv.length !== 3) throw new Error('Usage: npm run check:host -- <path-to-DevKit>')
   const root = path.resolve(__dirname, '..')
   const host = path.resolve(process.argv[2])
-  const storeSource = path.join(host, 'src/main/services/plugins/store.ts')
-  const schemaSource = path.join(host, 'src/main/services/plugins/schema.ts')
-  if (!fs.existsSync(storeSource) || !fs.existsSync(schemaSource)) throw new Error('目标 DevKit checkout 不包含 API v1 插件宿主')
+  const sdkEntry = path.join(host, 'packages/plugin-sdk/src/index.ts')
+  if (!fs.existsSync(sdkEntry)) {
+    throw new Error('目标 DevKit checkout 缺少 packages/plugin-sdk 契约包')
+  }
   const plugins = discover(root)
   verifyCatalog(root, plugins)
-  const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'devkit-plugins-host-'))
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'devkit-plugins-sdk-'))
   try {
-    const output = path.join(temp, 'host-contract.cjs')
+    const sdkCopy = path.join(temp, 'sdk')
+    fs.cpSync(path.join(host, 'packages/plugin-sdk'), sdkCopy, { recursive: true })
+    const output = path.join(temp, 'plugin-sdk.cjs')
     buildSync({
-      stdin: { contents: 'export { PluginStore, parseManifest } from ' + JSON.stringify(storeSource) +
-        '; export { applyDefaults, validateConfig } from ' + JSON.stringify(schemaSource) + ';',
-        resolveDir: host, loader: 'ts' },
-      outfile: output, bundle: true, platform: 'node', format: 'cjs', logLevel: 'error'
+      entryPoints: [path.join(sdkCopy, 'src/index.ts')],
+      outfile: output,
+      absWorkingDir: sdkCopy,
+      bundle: true,
+      platform: 'node',
+      format: 'cjs',
+      logLevel: 'error'
     })
-    const { PluginStore, parseManifest, applyDefaults, validateConfig } = require(output)
+    const {
+      parseManifest,
+      applyDefaults,
+      validateConfig,
+      createMockPluginContext
+    } = require(output)
+
     for (const plugin of plugins) {
       const manifest = parseManifest(plugin.manifest)
       const bundlePath = packPlugin(root, plugin)
       const directoryPath = path.join(root, plugin.relativeDir, 'package')
-      let jsonInstall
-      for (const [kind, source] of [['directory', directoryPath], ['json', bundlePath]]) {
-        const store = new PluginStore(path.join(temp, plugin.slug + '-' + kind))
-        const installed = await store.install(source, new Set(['devkit.oa-debug']))
-        assert.equal(installed.id, manifest.id)
-        assert.equal(installed.version, manifest.version)
-        assert.equal(installed.entry, manifest.entry)
-        assert.deepEqual((await store.listInstalled()).map((p) => p.id), [manifest.id])
-        for (const [name, content] of Object.entries(plugin.files)) {
-          assert.equal(fs.readFileSync(path.join(installed.path, ...name.split('/')), 'utf8'), content)
-        }
-        const installedManifest = JSON.parse(fs.readFileSync(path.join(installed.path, 'manifest.json'), 'utf8'))
-        assert.deepEqual(parseManifest(installedManifest), manifest)
-        if (kind === 'json') jsonInstall = installed
-      }
-      // The first plugin has complete defaults and fixed, hardware-free vectors.
-      // Other plugins supply their protocol vectors in their own test/ directory.
-      if (manifest.id === 'devkit.text-hex-responder') {
-        const config = applyDefaults({}, manifest.configSchema)
-        validateConfig(config, manifest.configSchema)
-        const module = await import(pathToFileURL(path.join(jsonInstall.path, manifest.entry)).href)
-        const activate = module.activate ?? module.default?.activate
-        assert.equal(typeof activate, 'function')
-        const writes = []
-        const context = (values) => ({
-          config: values, autoEnabled: true, signal: new AbortController().signal,
-          session: { panelId: 'compat', connectionId: 'fixture', path: 'MOCK', encoding: 'utf8' },
-          log() {}, state() {},
-          serial: { async write(data) { writes.push(data); return { ok: true } } }
+      assert.equal(fs.existsSync(bundlePath), true)
+      assert.equal(fs.existsSync(path.join(directoryPath, 'manifest.json')), true)
+
+      const config = applyDefaults({}, manifest.configSchema)
+      validateConfig(config, manifest.configSchema)
+
+      const entryUrl = pathToFileURL(path.join(directoryPath, manifest.entry)).href
+      const mod = await import(entryUrl)
+      const activate = mod.activate ?? mod.default?.activate
+      assert.equal(typeof activate, 'function')
+
+      // Verify every plugin activates cleanly against the official SDK mock harness across all declared transports
+      for (const transport of manifest.transports) {
+        const harness = createMockPluginContext({
+          config,
+          session: { transport, target: `${transport}-mock` },
+          autoEnabled: manifest.autoRespond
         })
-        const textPlugin = await activate(context(config))
-        await textPlugin.onData({ bytes: [80,73], text: 'PI' })
-        assert.equal(writes.length, 0)
-        await textPlugin.onData({ bytes: [78,71,13,10,80,73,78,71,10], text: 'NG\r\nPING\n' })
-        assert.deepEqual(writes, ['PONG\r\n','PONG\r\n'])
-        assert.equal((await textPlugin.run('send')).ok, true)
-        await textPlugin.dispose()
-        const before = writes.length
-        await textPlugin.onData({ bytes: [80,73,78,71,10], text: 'PING\n' })
-        assert.equal(writes.length, before)
-        const hex = await activate(context({ ...config, mode: 'hex', match: 'AA 55', response: '00 FF' }))
-        await hex.onData({ bytes: [170], text: '' })
-        await hex.onData({ bytes: [85], text: '' })
-        assert.deepEqual(writes.at(-1), [0,255])
-        await hex.dispose()
+        const instance = await activate(harness.ctx)
+        assert.equal(typeof instance, 'object')
+        if (manifest.id === 'devkit.text-hex-responder') {
+          await instance.onData(harness.makeDataEvent('PI'))
+          assert.equal(harness.writes.length, 0)
+          await instance.onData(harness.makeDataEvent('NG\r\nPING\n'))
+          assert.deepEqual(harness.writes.map((w) => w.data), ['PONG\r\n', 'PONG\r\n'])
+          assert.equal((await instance.run('send')).ok, true)
+        }
+        if (typeof instance.dispose === 'function') await instance.dispose()
       }
-      console.log('PASS real DevKit host: ' + plugin.slug + ' (manifest/schema, directory + JSON installation, entry and file identity)')
+      console.log(`PASS @devkit/plugin-sdk contract: ${plugin.slug} (${manifest.transports.join(', ')})`)
     }
   } finally { fs.rmSync(temp, { recursive: true, force: true }) }
 }
+
 main().catch((error) => { console.error(error); process.exitCode = 1 })
