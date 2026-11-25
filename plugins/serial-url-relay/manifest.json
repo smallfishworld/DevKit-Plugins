@@ -1,0 +1,508 @@
+{
+  "id": "devkit.serial-url-relay",
+  "name": "串口取数回传",
+  "version": "1.0.0",
+  "apiVersion": 2,
+  "entry": "src/index.cjs",
+  "description": "串口设备输出命中规则后，从 HTTPS 接口取回数据（或使用固定值、映射表），再回传到串口；触发词、内容匹配、结果确认与扣键均可配置。",
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "ruleId": {
+        "type": "string",
+        "title": "手动动作默认规则 ID",
+        "description": "手动执行时使用的规则 id；留空则使用第一条手动规则。"
+      },
+      "auto": {
+        "type": "boolean",
+        "title": "允许自动响应",
+        "description": "关闭后即使绑定会话并开启自动监听，也不会自动匹配设备输出或回传数据。",
+        "default": true
+      },
+      "replySource": {
+        "type": "string",
+        "title": "回传内容来源",
+        "description": "http：登录后从内网接口取数；static：固定内容；map：按设备输出查本地映射表。新建后请先填写该来源对应的必填项。",
+        "enum": [
+          "http",
+          "static",
+          "map"
+        ],
+        "default": "http"
+      },
+      "loginUrl": {
+        "type": "string",
+        "title": "登录入口（HTTPS）",
+        "x-visibleWhen": {
+          "field": "replySource",
+          "equals": "http"
+        }
+      },
+      "authOrigins": {
+        "type": "string",
+        "title": "额外登录跳转来源",
+        "description": "企业 SSO 回跳来源，英文逗号分隔，如 https://sso.example.com。",
+        "x-visibleWhen": {
+          "field": "replySource",
+          "equals": "http"
+        }
+      },
+      "authCheckType": {
+        "type": "string",
+        "title": "登录检查方式",
+        "enum": [
+          "json",
+          "http-ok"
+        ],
+        "default": "json",
+        "x-visibleWhen": {
+          "field": "replySource",
+          "equals": "http"
+        }
+      },
+      "authCheckUrl": {
+        "type": "string",
+        "title": "登录检查接口",
+        "description": "必须与登录入口同源。",
+        "x-visibleWhen": {
+          "field": "replySource",
+          "equals": "http"
+        }
+      },
+      "authCheckField": {
+        "type": "string",
+        "title": "登录检查字段",
+        "description": "json 方式下要求该点路径字段为 true，默认 authenticated。",
+        "default": "authenticated",
+        "x-visibleWhen": {
+          "field": "replySource",
+          "equals": "http"
+        }
+      },
+      "fetchMethod": {
+        "type": "string",
+        "title": "取数请求方法",
+        "enum": [
+          "POST",
+          "GET"
+        ],
+        "default": "POST",
+        "x-visibleWhen": {
+          "field": "replySource",
+          "equals": "http"
+        }
+      },
+      "fetchUrl": {
+        "type": "string",
+        "title": "取数接口",
+        "description": "GET 时可在地址中包含 $value 占位符；必须与登录入口同源。",
+        "x-visibleWhen": {
+          "field": "replySource",
+          "equals": "http"
+        }
+      },
+      "fetchBody": {
+        "type": "object",
+        "title": "取数请求体模板",
+        "description": "JSON 对象，至少一个值包含 $value，运行时替换为设备输出中匹配到的内容。",
+        "additionalProperties": true,
+        "x-visibleWhen": {
+          "field": "replySource",
+          "equals": "http"
+        }
+      },
+      "fetchResponsePath": {
+        "type": "string",
+        "title": "回传内容字段路径",
+        "description": "响应 JSON 中的点路径，如 data.token；留空则原样回传整个响应文本。",
+        "x-visibleWhen": {
+          "field": "replySource",
+          "equals": "http"
+        }
+      },
+      "fetchLoginExpiredHttp": {
+        "type": "string",
+        "title": "登录失效 HTTP 状态",
+        "description": "英文逗号分隔，默认 401,403。",
+        "default": "401,403",
+        "x-visibleWhen": {
+          "field": "replySource",
+          "equals": "http"
+        }
+      },
+      "fetchLoginExpiredCodes": {
+        "type": "string",
+        "title": "登录失效业务 code",
+        "description": "英文逗号分隔；默认空，例如 003,403003。",
+        "x-visibleWhen": {
+          "field": "replySource",
+          "equals": "http"
+        }
+      },
+      "fetchRetryLoginOnce": {
+        "type": "boolean",
+        "title": "登录失效时自动重登一次",
+        "default": true,
+        "x-visibleWhen": {
+          "field": "replySource",
+          "equals": "http"
+        }
+      },
+      "fetchUserAgent": {
+        "type": "string",
+        "title": "取数请求 User-Agent",
+        "description": "可选；留空使用宿主登录会话的浏览器 User-Agent。",
+        "x-visibleWhen": {
+          "field": "replySource",
+          "equals": "http"
+        }
+      },
+      "staticReply": {
+        "type": "string",
+        "title": "固定回传内容",
+        "description": "设备接受固定口令或应答时使用；以 secret 写入，不回显到终端历史。",
+        "x-visibleWhen": {
+          "field": "replySource",
+          "equals": "static"
+        }
+      },
+      "replyMap": {
+        "type": "array",
+        "title": "设备输出映射",
+        "description": "设备输出（匹配到的完整内容）与回传内容的对照表；必须完全一致。",
+        "maxItems": 64,
+        "minItems": 1,
+        "x-visibleWhen": {
+          "field": "replySource",
+          "equals": "map"
+        },
+        "items": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "type": "string",
+              "title": "设备输出"
+            },
+            "reply": {
+              "type": "string",
+              "title": "回传内容"
+            }
+          },
+          "required": [
+            "input",
+            "reply"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "replyCharset": {
+        "type": "string",
+        "title": "回传内容字符集校验",
+        "description": "base64：字母数字与 . _ ~ + / = -；printable：任意可打印字符。",
+        "enum": [
+          "base64",
+          "printable"
+        ],
+        "default": "base64"
+      },
+      "replyMinLength": {
+        "type": "integer",
+        "title": "回传内容最小长度",
+        "minimum": 1,
+        "maximum": 4096,
+        "default": 4
+      },
+      "replyMaxLength": {
+        "type": "integer",
+        "title": "回传内容最大长度",
+        "minimum": 1,
+        "maximum": 65536,
+        "default": 4096
+      },
+      "rules": {
+        "type": "array",
+        "title": "取数回传规则",
+        "description": "每条规则对应一种设备动作；手动规则由插件动作触发，自动规则常驻监听设备输出。",
+        "maxItems": 32,
+        "default": [
+          {
+            "id": "manual",
+            "label": "手动取数回传",
+            "actionLabel": "执行取数回传",
+            "trigger": "manual",
+            "match": "prefix",
+            "prefix": "Challenge:",
+            "result": "line",
+            "successLine": "Unlocked",
+            "failureLine": "Denied",
+            "command": "debug",
+            "newline": "cr"
+          }
+        ],
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "title": "规则 ID",
+              "description": "留空按序号生成 rule-1、rule-2…；手动执行与 ruleId 使用它。",
+              "pattern": "^$|^[A-Za-z0-9._-]{1,64}$"
+            },
+            "label": {
+              "type": "string",
+              "title": "规则名称"
+            },
+            "actionLabel": {
+              "type": "string",
+              "title": "手动按钮名称"
+            },
+            "trigger": {
+              "type": "string",
+              "title": "触发方式",
+              "enum": [
+                "manual",
+                "auto"
+              ],
+              "default": "manual"
+            },
+            "triggerWords": {
+              "type": "string",
+              "title": "自动触发词",
+              "description": "英文逗号分隔，按整行匹配（自动折叠退格、去除 # $ > % 等提示符）。",
+              "x-visibleWhen": {
+                "field": "trigger",
+                "equals": "auto"
+              }
+            },
+            "match": {
+              "type": "string",
+              "title": "设备内容匹配",
+              "description": "prefix：行首前缀后的内容作为输入；base64-line：按长度与解码后长度识别裸 base64；line：任意一行完整内容。",
+              "enum": [
+                "prefix",
+                "base64-line",
+                "line"
+              ],
+              "default": "prefix"
+            },
+            "prefix": {
+              "type": "string",
+              "title": "内容行首前缀",
+              "description": "如 Challenge:；前缀之后的内容作为输入。",
+              "x-visibleWhen": {
+                "field": "match",
+                "equals": "prefix"
+              }
+            },
+            "shortMin": {
+              "type": "integer",
+              "title": "短码最小长度",
+              "minimum": 8,
+              "maximum": 256,
+              "default": 20,
+              "x-visibleWhen": {
+                "field": "match",
+                "equals": "base64-line"
+              }
+            },
+            "shortMax": {
+              "type": "integer",
+              "title": "短码最大长度",
+              "minimum": 8,
+              "maximum": 512,
+              "default": 21,
+              "x-visibleWhen": {
+                "field": "match",
+                "equals": "base64-line"
+              }
+            },
+            "longMin": {
+              "type": "integer",
+              "title": "长码最小长度",
+              "minimum": 8,
+              "maximum": 8192,
+              "default": 300,
+              "x-visibleWhen": {
+                "field": "match",
+                "equals": "base64-line"
+              }
+            },
+            "longMinDecoded": {
+              "type": "integer",
+              "title": "长码最小解码字节",
+              "minimum": 16,
+              "maximum": 8192,
+              "default": 260,
+              "x-visibleWhen": {
+                "field": "match",
+                "equals": "base64-line"
+              }
+            },
+            "result": {
+              "type": "string",
+              "title": "结果判定",
+              "description": "line：等待整行成功/失败提示；prompt-repeat：回传后再次出现提示即判定拒绝；none：写入后立即结束。",
+              "enum": [
+                "line",
+                "prompt-repeat",
+                "none"
+              ],
+              "default": "line"
+            },
+            "successLine": {
+              "type": "string",
+              "title": "成功提示行",
+              "x-visibleWhen": {
+                "field": "result",
+                "equals": "line"
+              }
+            },
+            "failureLine": {
+              "type": "string",
+              "title": "失败提示行",
+              "x-visibleWhen": {
+                "field": "result",
+                "equals": "line"
+              }
+            },
+            "promptText": {
+              "type": "string",
+              "title": "提示文本",
+              "description": "回传后设备再次出现该提示即判定拒绝，默认 Password:。",
+              "default": "Password:",
+              "x-visibleWhen": {
+                "field": "result",
+                "equals": "prompt-repeat"
+              }
+            },
+            "decisionDelayMs": {
+              "type": "integer",
+              "title": "判定延迟（毫秒）",
+              "minimum": 0,
+              "maximum": 2000,
+              "default": 150,
+              "x-visibleWhen": {
+                "field": "result",
+                "equals": "prompt-repeat"
+              }
+            },
+            "silenceMs": {
+              "type": "integer",
+              "title": "静默判定（毫秒）",
+              "minimum": 100,
+              "maximum": 30000,
+              "default": 3000,
+              "x-visibleWhen": {
+                "field": "result",
+                "equals": "prompt-repeat"
+              }
+            },
+            "command": {
+              "type": "string",
+              "title": "手动起始命令",
+              "description": "手动执行时先发送该命令再等待设备输出；自动规则不会发送它。",
+              "x-visibleWhen": {
+                "field": "trigger",
+                "equals": "manual"
+              }
+            },
+            "newline": {
+              "type": "string",
+              "title": "行结束符",
+              "enum": [
+                "cr",
+                "lf",
+                "crlf",
+                "none"
+              ],
+              "default": "cr"
+            },
+            "replyTemplate": {
+              "type": "string",
+              "title": "回传内容模板",
+              "description": "可用 $value 引用取回的数据，例如 auth $value；留空等同于 $value。"
+            },
+            "inputTimeoutMs": {
+              "type": "integer",
+              "title": "等待设备输出超时（毫秒）",
+              "minimum": 100,
+              "maximum": 300000,
+              "default": 5000
+            },
+            "valueTtlMs": {
+              "type": "integer",
+              "title": "取回内容有效期（毫秒）",
+              "minimum": 100,
+              "maximum": 300000,
+              "default": 30000
+            },
+            "resultTimeoutMs": {
+              "type": "integer",
+              "title": "等待结果超时（毫秒）",
+              "minimum": 100,
+              "maximum": 300000,
+              "default": 5000
+            },
+            "holdInput": {
+              "type": "boolean",
+              "title": "自动响应时扣住输入",
+              "description": "仅对自动规则与串口生效；成功后按原顺序补发，失败或超时丢弃。",
+              "default": true,
+              "x-visibleWhen": {
+                "field": "trigger",
+                "equals": "auto"
+              }
+            },
+            "holdMaxBytes": {
+              "type": "integer",
+              "title": "扣键缓存上限（字节）",
+              "minimum": 256,
+              "maximum": 1048576,
+              "default": 4096,
+              "x-visibleWhen": {
+                "field": "holdInput",
+                "notEquals": false
+              }
+            },
+            "holdMaxMs": {
+              "type": "integer",
+              "title": "扣键最长时间（毫秒）",
+              "minimum": 1000,
+              "maximum": 300000,
+              "default": 15000,
+              "x-visibleWhen": {
+                "field": "holdInput",
+                "notEquals": false
+              }
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
+      }
+    },
+    "additionalProperties": false
+  },
+  "actions": [
+    {
+      "id": "run",
+      "label": "执行取数回传",
+      "description": "按手动规则取数并回传一次；可用 args.ruleId 指定规则。"
+    },
+    {
+      "id": "reset",
+      "label": "重置监听缓存",
+      "description": "取消等待中的设备输出或结果，清空未完成行的缓存，并丢弃当前扣住的输入。"
+    }
+  ],
+  "autoRespond": true,
+  "capabilities": [
+    "stream.read",
+    "stream.write",
+    "stream.exclusive",
+    "auth.session"
+  ],
+  "transports": [
+    "serial"
+  ]
+}

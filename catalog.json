@@ -3,19 +3,19 @@
   "apiVersion": 2,
   "plugins": [
     {
-      "slug": "oa-unlock",
-      "id": "devkit.oa-debug",
-      "name": "OA 设备解锁",
+      "slug": "serial-url-relay",
+      "id": "devkit.serial-url-relay",
+      "name": "串口取数回传",
       "version": "1.0.0",
       "apiVersion": 2,
       "transports": [
         "serial"
       ],
-      "description": "OA 登录、设备挑战码取口令、注入与结果验证；每个实例拥有独立配置，支持手动解锁与自动应答（扣键补发）。",
-      "path": "plugins/oa-unlock",
-      "readme": "plugins/oa-unlock/README.md",
-      "packagePath": "dist/oa-unlock/1.0.0/devkit.oa-debug-1.0.0.devkit-plugin.json",
-      "installDirectory": "dist/oa-unlock/1.0.0/package"
+      "description": "串口设备输出命中规则后，从 HTTPS 接口取回数据（或使用固定值、映射表），再回传到串口；触发词、内容匹配、结果确认与扣键均可配置。",
+      "path": "plugins/serial-url-relay",
+      "readme": "plugins/serial-url-relay/README.md",
+      "packagePath": "dist/serial-url-relay/1.0.0/devkit.serial-url-relay-1.0.0.devkit-plugin.json",
+      "installDirectory": "dist/serial-url-relay/1.0.0/package"
     },
     {
       "slug": "text-hex-responder",

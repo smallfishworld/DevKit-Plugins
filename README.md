@@ -7,13 +7,13 @@ DevKit 设备插件仓库。每个插件独立维护协议逻辑、配置清单�
 | 插件 | ID | 用途 |
 |---|---|---|
 | [文本 / HEX 自动应答](plugins/text-hex-responder/README.md) | `devkit.text-hex-responder` | 在串口、SSH、网络会话中按多条文本 / HEX 规则自动回复，支持手动发送和清空缓存，无需 OA。 |
-| [OA 设备解锁](plugins/oa-unlock/README.md) | `devkit.oa-debug` | 串口设备挑战码、OA 会话取码、口令注入与结果验证，保留手动和自动扣键补发流程。 |
+| [串口取数回传](plugins/serial-url-relay/README.md) | `devkit.serial-url-relay` | 设备输出命中规则后，从 HTTPS 接口取回数据（或固定值、映射表）并回传到串口；触发词、内容匹配、结果确认、回传模板与扣键均可配置。 |
 
 机器可读目录是 [catalog.json](catalog.json)，由各插件 manifest 生成，不能手工维护第二份版本号。该目录用于仓库浏览和构建。DevKit 扩展中心默认使用[官方安装索引](https://github.com/smallfishworld/DevKit-Plugins/releases/download/install-index-v2/index.json)，索引包含正式包的下载地址和 SHA-256。
 
 ## 使用插件
 
-需要支持**设备插件 API v2** 以及插件所声明能力的 DevKit。CI 使用 [compatibility.json](compatibility.json) 中的完整宿主提交 SHA，对官方 SDK、真实安装器和 Electron 独立进程执行兼容验证。OA 插件还需要 `stream.exclusive` 和 `auth.session` 能力；只有基础 API v2 的旧宿主不足以运行它。
+需要支持**设备插件 API v2** 以及插件所声明能力的 DevKit。CI 使用 [compatibility.json](compatibility.json) 中的完整宿主提交 SHA，对官方 SDK、真实安装器和 Electron 独立进程执行兼容验证。串口取数回传插件还需要 `stream.exclusive` 和 `auth.session` 能力；只有基础 API v2 的旧宿主不足以运行它。
 
 安装开发环境为 Node.js 22 或更新版本：
 
