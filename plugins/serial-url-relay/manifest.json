@@ -1,7 +1,7 @@
 {
   "id": "devkit.serial-url-relay",
   "name": "串口取数回传",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "apiVersion": 2,
   "entry": "src/index.cjs",
   "description": "串口设备输出命中规则后，从 HTTPS 接口取回数据（或使用固定值、映射表），再回传到串口；触发词、内容匹配、结果确认与扣键均可配置。",
@@ -11,7 +11,8 @@
       "ruleId": {
         "type": "string",
         "title": "手动动作默认规则 ID",
-        "description": "手动执行时使用的规则 id；留空则使用第一条手动规则。"
+        "description": "手动执行时使用的规则 id；留空则使用第一条手动规则。",
+        "x-advanced": true
       },
       "auto": {
         "type": "boolean",
@@ -45,7 +46,8 @@
         "x-visibleWhen": {
           "field": "replySource",
           "equals": "http"
-        }
+        },
+        "x-advanced": true
       },
       "authCheckType": {
         "type": "string",
@@ -58,7 +60,8 @@
         "x-visibleWhen": {
           "field": "replySource",
           "equals": "http"
-        }
+        },
+        "x-advanced": true
       },
       "authCheckUrl": {
         "type": "string",
@@ -77,7 +80,8 @@
         "x-visibleWhen": {
           "field": "replySource",
           "equals": "http"
-        }
+        },
+        "x-advanced": true
       },
       "fetchMethod": {
         "type": "string",
@@ -128,7 +132,8 @@
         "x-visibleWhen": {
           "field": "replySource",
           "equals": "http"
-        }
+        },
+        "x-advanced": true
       },
       "fetchLoginExpiredCodes": {
         "type": "string",
@@ -146,7 +151,8 @@
         "x-visibleWhen": {
           "field": "replySource",
           "equals": "http"
-        }
+        },
+        "x-advanced": true
       },
       "fetchUserAgent": {
         "type": "string",
@@ -155,7 +161,8 @@
         "x-visibleWhen": {
           "field": "replySource",
           "equals": "http"
-        }
+        },
+        "x-advanced": true
       },
       "staticReply": {
         "type": "string",
@@ -203,21 +210,24 @@
           "base64",
           "printable"
         ],
-        "default": "base64"
+        "default": "base64",
+        "x-advanced": true
       },
       "replyMinLength": {
         "type": "integer",
         "title": "回传内容最小长度",
         "minimum": 1,
         "maximum": 4096,
-        "default": 4
+        "default": 4,
+        "x-advanced": true
       },
       "replyMaxLength": {
         "type": "integer",
         "title": "回传内容最大长度",
         "minimum": 1,
         "maximum": 65536,
-        "default": 4096
+        "default": 4096,
+        "x-advanced": true
       },
       "rules": {
         "type": "array",
@@ -246,15 +256,18 @@
               "type": "string",
               "title": "规则 ID",
               "description": "留空按序号生成 rule-1、rule-2…；手动执行与 ruleId 使用它。",
-              "pattern": "^$|^[A-Za-z0-9._-]{1,64}$"
+              "pattern": "^$|^[A-Za-z0-9._-]{1,64}$",
+              "x-advanced": true
             },
             "label": {
               "type": "string",
-              "title": "规则名称"
+              "title": "规则名称",
+              "x-advanced": true
             },
             "actionLabel": {
               "type": "string",
-              "title": "手动按钮名称"
+              "title": "手动按钮名称",
+              "x-advanced": true
             },
             "trigger": {
               "type": "string",
@@ -384,7 +397,8 @@
               "x-visibleWhen": {
                 "field": "result",
                 "equals": "prompt-repeat"
-              }
+              },
+              "x-advanced": true
             },
             "silenceMs": {
               "type": "integer",
@@ -395,7 +409,8 @@
               "x-visibleWhen": {
                 "field": "result",
                 "equals": "prompt-repeat"
-              }
+              },
+              "x-advanced": true
             },
             "command": {
               "type": "string",
@@ -427,21 +442,24 @@
               "title": "等待设备输出超时（毫秒）",
               "minimum": 100,
               "maximum": 300000,
-              "default": 5000
+              "default": 5000,
+              "x-advanced": true
             },
             "valueTtlMs": {
               "type": "integer",
               "title": "取回内容有效期（毫秒）",
               "minimum": 100,
               "maximum": 300000,
-              "default": 30000
+              "default": 30000,
+              "x-advanced": true
             },
             "resultTimeoutMs": {
               "type": "integer",
               "title": "等待结果超时（毫秒）",
               "minimum": 100,
               "maximum": 300000,
-              "default": 5000
+              "default": 5000,
+              "x-advanced": true
             },
             "holdInput": {
               "type": "boolean",
@@ -451,7 +469,8 @@
               "x-visibleWhen": {
                 "field": "trigger",
                 "equals": "auto"
-              }
+              },
+              "x-advanced": true
             },
             "holdMaxBytes": {
               "type": "integer",
@@ -462,7 +481,8 @@
               "x-visibleWhen": {
                 "field": "holdInput",
                 "notEquals": false
-              }
+              },
+              "x-advanced": true
             },
             "holdMaxMs": {
               "type": "integer",
@@ -473,7 +493,8 @@
               "x-visibleWhen": {
                 "field": "holdInput",
                 "notEquals": false
-              }
+              },
+              "x-advanced": true
             }
           },
           "required": [],

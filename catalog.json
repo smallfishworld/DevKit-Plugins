@@ -6,7 +6,7 @@
       "slug": "serial-url-relay",
       "id": "devkit.serial-url-relay",
       "name": "串口取数回传",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "apiVersion": 2,
       "transports": [
         "serial"
@@ -14,8 +14,8 @@
       "description": "串口设备输出命中规则后，从 HTTPS 接口取回数据（或使用固定值、映射表），再回传到串口；触发词、内容匹配、结果确认与扣键均可配置。",
       "path": "plugins/serial-url-relay",
       "readme": "plugins/serial-url-relay/README.md",
-      "packagePath": "dist/serial-url-relay/1.0.0/devkit.serial-url-relay-1.0.0.devkit-plugin.json",
-      "installDirectory": "dist/serial-url-relay/1.0.0/package"
+      "packagePath": "dist/serial-url-relay/1.1.0/devkit.serial-url-relay-1.1.0.devkit-plugin.json",
+      "installDirectory": "dist/serial-url-relay/1.1.0/package"
     },
     {
       "slug": "text-hex-responder",

@@ -36,7 +36,7 @@ dist/serial-url-relay/1.0.0/package/
 
 ## 配置
 
-配置由 `manifest.json` 的 Schema 驱动：顶层字段描述回传内容来源，`rules` 数组描述每种设备动作。
+配置由 `manifest.json` 的 Schema 驱动：顶层字段描述回传内容来源，`rules` 数组描述每种设备动作。表单默认只展示因环境而异的字段；各类超时、缓存上限、字符集校验等调参字段收在「高级选项」折叠区（标记了 `x-advanced`），保持默认即可，完整 JSON 页签仍可编辑全部字段。
 
 ### 选择回传内容来源
 
